@@ -1,9 +1,9 @@
 """
-FoodTrack - Version Streamlit (interfaz clickeable)
------------------------------------------------------
+TABLE - Servicio a la mesa para Food Parks (interfaz Streamlit)
+-----------------------------------------------------------------
 Misma logica y mismas estructuras de datos propias que foodtrack_v2.py
-(Nodo, ListaEnlazada, Cola, Pila, NodoArbol, Grafo, TablaHash), pero con
-una interfaz web con botones en vez de menus de texto por consola.
+(Nodo, ListaEnlazada, Cola, Pila, NodoArbol, Grafo, TablaHash).
+Esta version le suma un diseño visual tipo app de delivery (PedidosYa/Monchis).
 
 Para correrlo:
     pip install streamlit
@@ -17,6 +17,22 @@ from datetime import datetime
 import streamlit as st
 
 ARCHIVO_HISTORIAL = "facturas_historial.json"
+
+# Iconos usados solo para la parte visual (no afectan la logica)
+ICONOS_CATEGORIA = {
+    "Menu": "🍽️",
+    "Comidas": "🍴",
+    "Bebidas": "🥤",
+    "Rapidas": "🍔",
+    "Saludables": "🥗",
+    "Frias": "🧊",
+}
+ICONOS_PUESTO = {
+    "Puesto Burger": "🍔",
+    "Puesto Pizza": "🍕",
+    "Puesto Saludable": "🥗",
+    "Puesto Bebidas": "🥤",
+}
 
 
 # ============================================================
@@ -329,7 +345,7 @@ def guardar_historial(historial):
 
 
 # ============================================================
-# ESTADO DE LA APP (reemplaza a las variables locales de main())
+# ESTADO DE LA APP
 # ============================================================
 def init_state():
     if "iniciado" in st.session_state:
@@ -340,26 +356,145 @@ def init_state():
     st.session_state.menu = menu
     st.session_state.mapa = construir_mapa()
     st.session_state.mesas_activas = TablaHash()
-    st.session_state.colas_cocina = {}          # puesto -> Cola (compartida)
+    st.session_state.colas_cocina = {}
     st.session_state.historial_facturas = cargar_historial()
     st.session_state.mesa_actual = None
-    st.session_state.ruta_menu = [menu]          # breadcrumb para navegar el arbol
-    st.session_state.log_cocina = []             # ultimos eventos de cocina
+    st.session_state.ruta_menu = [menu]
+    st.session_state.log_cocina = []
 
 
+st.set_page_config(page_title="TABLE", page_icon="🍽️", layout="wide")
 init_state()
 
-st.set_page_config(page_title="FoodTrack", page_icon="🍔", layout="wide")
-st.title("🍔 FoodTrack — Servicio a la mesa para Food Park")
+# ============================================================
+# ESTILO VISUAL (look de app de delivery)
+# ============================================================
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+
+#MainMenu, footer, header[data-testid="stHeader"] { visibility: hidden; height: 0; }
+
+:root {
+    --brand: #FF4B3E;
+    --brand-dark: #E0392D;
+    --brand-light: #FFF0EE;
+    --ok: #2EC4B6;
+    --text-dark: #1D1D1F;
+    --text-muted: #767680;
+}
+
+.block-container { padding-top: 1rem; padding-bottom: 3rem; max-width: 1050px; }
+
+/* ---- Sidebar ---- */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #1D1D1F 0%, #29292C 100%);
+}
+section[data-testid="stSidebar"] * { color: #F2F2F4 !important; }
+section[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,0.12); }
+section[data-testid="stSidebar"] .stButton>button {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 12px;
+    font-weight: 500;
+    padding: 0.5rem 0.9rem;
+}
+section[data-testid="stSidebar"] .stButton>button:hover {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: white !important;
+}
+section[data-testid="stSidebar"] input {
+    background: rgba(255,255,255,0.08) !important;
+    border-radius: 10px !important;
+    color: white !important;
+}
+
+/* ---- Buttons (main area) ---- */
+button[kind="primary"] {
+    background: var(--brand) !important;
+    border: none !important;
+    border-radius: 14px !important;
+    font-weight: 600 !important;
+    padding: 0.55rem 1.2rem !important;
+    box-shadow: 0 6px 16px rgba(255,75,62,0.30);
+}
+button[kind="primary"]:hover { background: var(--brand-dark) !important; }
+
+button[kind="secondary"] {
+    border-radius: 14px !important;
+    border: 1.5px solid #ECECEE !important;
+    font-weight: 500 !important;
+    color: var(--text-dark) !important;
+}
+button[kind="secondary"]:hover {
+    border-color: var(--brand) !important;
+    color: var(--brand) !important;
+}
+
+/* ---- Tabs ---- */
+button[data-baseweb="tab"] { font-weight: 600; font-size: 0.95rem; }
+div[data-baseweb="tab-highlight"] { background-color: var(--brand) !important; }
+button[data-baseweb="tab"][aria-selected="true"] { color: var(--brand) !important; }
+
+/* ---- Cards (bordered containers = productos / mesas) ---- */
+div[data-testid="stVerticalBlockBorderWrapper"] > div {
+    border-radius: 18px !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+    padding: 0.4rem;
+}
+div[data-testid="stVerticalBlockBorderWrapper"] > div:hover {
+    box-shadow: 0 8px 20px rgba(0,0,0,0.10);
+    transform: translateY(-2px);
+}
+
+/* ---- Badges ---- */
+.badge-precio {
+    display: inline-block;
+    background: var(--brand-light);
+    color: var(--brand);
+    font-weight: 700;
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+}
+.badge-puesto {
+    display: inline-block;
+    background: #F2F2F4;
+    color: var(--text-muted);
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    margin-left: 6px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ---- Header / logo ----
+st.markdown("""
+<div style="text-align:center; padding: 0.5rem 0 0.2rem 0;">
+  <div style="font-family:'Fredoka',sans-serif; font-weight:700; font-size:2.8rem; color:#FF4B3E; letter-spacing:1px;">
+    🍽️ TABLE
+  </div>
+  <div style="color:#767680; font-size:1rem; margin-top:-6px;">
+    Del pedido a la mesa, sin esperas innecesarias
+  </div>
+</div>
+""", unsafe_allow_html=True)
+st.write("")
 
 # ------------------------------------------------------------
-# BARRA LATERAL: equivalente al "MENU PRINCIPAL" de la consola
+# BARRA LATERAL
 # ------------------------------------------------------------
 with st.sidebar:
-    st.header("Menu principal")
+    st.markdown("### 🏠 Panel")
 
     numero = st.number_input("Numero de mesa", min_value=1, step=1, value=1)
-    if st.button("Abrir / seleccionar mesa", use_container_width=True):
+    if st.button("➕ Abrir / seleccionar mesa", use_container_width=True):
         mesa = st.session_state.mesas_activas.buscar(numero)
         if mesa is None:
             mesa = Mesa(numero)
@@ -369,20 +504,20 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
-    st.subheader("Mesas activas")
+    st.markdown("### 🪑 Mesas activas")
     activas = st.session_state.mesas_activas.valores()
     if not activas:
         st.caption("No hay mesas activas.")
     else:
         for m in activas:
-            etiqueta = f"Mesa {m.numero} — carrito {len(m.carrito)} item(s)"
+            etiqueta = f"Mesa {m.numero} · 🛒 {len(m.carrito)}"
             if st.button(etiqueta, key=f"sel_mesa_{m.numero}", use_container_width=True):
                 st.session_state.mesa_actual = m
                 st.session_state.ruta_menu = [st.session_state.menu]
                 st.rerun()
 
     st.divider()
-    st.subheader("Historial de facturas")
+    st.markdown("### 🧾 Historial")
     if not st.session_state.historial_facturas:
         st.caption("Aun no hay facturas registradas.")
     else:
@@ -391,69 +526,90 @@ with st.sidebar:
 
 
 # ------------------------------------------------------------
-# AREA PRINCIPAL: equivalente a gestionar_mesa()
+# AREA PRINCIPAL
 # ------------------------------------------------------------
 mesa = st.session_state.mesa_actual
 
 if mesa is None:
-    st.info("Abri o seleccioná una mesa desde la barra lateral para empezar.")
+    st.info("👋 Abri o seleccioná una mesa desde el panel para empezar a pedir.")
 else:
-    st.subheader(f"Mesa {mesa.numero}")
+    st.markdown(f"## Mesa {mesa.numero}")
 
     tab_menu, tab_carrito, tab_cocina, tab_ruta, tab_factura = st.tabs(
-        ["📋 Menu", "🛒 Carrito", "👨‍🍳 Cocina", "🗺️ Ruta de entrega", "🧾 Cerrar cuenta"]
+        ["🍔  Menú", "🛒  Carrito", "👨‍🍳  Cocina", "🗺️  Ruta", "🧾  Cuenta"]
     )
 
     # --- Tab 1: navegar el arbol de categorias y agregar productos ---
     with tab_menu:
         nodo_actual = st.session_state.ruta_menu[-1]
-        st.write("📍 " + " > ".join(n.nombre for n in st.session_state.ruta_menu))
+
+        breadcrumb = " ➜ ".join(
+            f"{ICONOS_CATEGORIA.get(n.nombre, '📂')} {n.nombre}"
+            for n in st.session_state.ruta_menu
+        )
+        st.markdown(f"**{breadcrumb}**")
 
         if len(st.session_state.ruta_menu) > 1:
-            if st.button("⬅️ Volver"):
+            if st.button("⬅️ Volver", key="volver_menu"):
                 st.session_state.ruta_menu.pop()
                 st.rerun()
 
+        st.write("")
         cols = st.columns(3)
         for i, hijo in enumerate(nodo_actual.hijos):
             with cols[i % 3]:
-                if hijo.producto:
-                    st.markdown(f"**{hijo.producto.nombre}**")
-                    st.caption(f"Gs. {hijo.producto.precio:,} · {hijo.producto.puesto}")
-                    cantidad = st.number_input(
-                        "Cantidad", min_value=1, value=1, step=1,
-                        key=f"cant_{hijo.producto.codigo}",
-                    )
-                    if st.button("Agregar al carrito", key=f"add_{hijo.producto.codigo}"):
-                        mesa.agregar_al_carrito(hijo.producto, cantidad)
-                        st.success(f"Agregado: {cantidad}x {hijo.producto.nombre}")
-                        st.rerun()
-                else:
-                    if st.button(f"📂 {hijo.nombre}", key=f"nav_{hijo.nombre}_{i}"):
-                        st.session_state.ruta_menu.append(hijo)
-                        st.rerun()
+                with st.container(border=True):
+                    if hijo.producto:
+                        p = hijo.producto
+                        icono = ICONOS_PUESTO.get(p.puesto, "🍽️")
+                        st.markdown(f"### {icono} {p.nombre}")
+                        st.markdown(
+                            f"<span class='badge-precio'>Gs. {p.precio:,}</span>"
+                            f"<span class='badge-puesto'>{p.puesto}</span>",
+                            unsafe_allow_html=True,
+                        )
+                        st.write("")
+                        cantidad = st.number_input(
+                            "Cantidad", min_value=1, value=1, step=1,
+                            key=f"cant_{p.codigo}", label_visibility="collapsed",
+                        )
+                        if st.button("Agregar al carrito", key=f"add_{p.codigo}",
+                                     use_container_width=True, type="primary"):
+                            mesa.agregar_al_carrito(p, cantidad)
+                            st.toast(f"Agregado: {cantidad}x {p.nombre}", icon="✅")
+                            st.rerun()
+                    else:
+                        icono = ICONOS_CATEGORIA.get(hijo.nombre, "📂")
+                        st.markdown(f"### {icono} {hijo.nombre}")
+                        st.caption(f"{len(hijo.hijos)} opciones")
+                        if st.button("Ver más", key=f"nav_{hijo.nombre}_{i}",
+                                     use_container_width=True):
+                            st.session_state.ruta_menu.append(hijo)
+                            st.rerun()
 
     # --- Tab 2: carrito, deshacer, enviar a cocina ---
     with tab_carrito:
         items = mesa.carrito.recorrer()
         if not items:
-            st.caption("El carrito esta vacio.")
+            st.caption("🛒 El carrito esta vacio. Agregá algo desde el Menú.")
         else:
             for it in items:
-                st.write(f"- {it}")
-            st.write(f"**Subtotal: Gs. {mesa.carrito.calcular_total():,}**")
+                c1, c2 = st.columns([4, 1])
+                c1.write(f"**{it.cantidad}x** {it.producto.nombre}")
+                c2.markdown(f"Gs. {it.subtotal():,}")
+            st.markdown(f"### Subtotal: Gs. {mesa.carrito.calcular_total():,}")
 
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("↩️ Deshacer ultimo agregado", use_container_width=True):
+            if st.button("↩️ Deshacer último", use_container_width=True):
                 quitado = mesa.deshacer()
                 if quitado:
-                    st.success(f"Se quito: {quitado}")
+                    st.toast(f"Se quitó: {quitado.producto.nombre}", icon="↩️")
                 else:
                     st.warning("Nada para deshacer.")
                 st.rerun()
         with c2:
-            if st.button("✅ Enviar carrito a cocina", use_container_width=True, type="primary"):
+            if st.button("✅ Enviar a cocina", use_container_width=True, type="primary"):
                 if not items:
                     st.warning("El carrito esta vacio.")
                 else:
@@ -463,32 +619,38 @@ else:
                         st.session_state.colas_cocina[puesto].encolar((mesa.numero, item))
                         mesa.confirmados.agregar(item)
                     mesa.carrito = ListaEnlazada()
-                    st.success("Pedido enviado a cocina.")
+                    st.toast("Pedido enviado a cocina", icon="🍳")
                     st.rerun()
 
         if len(mesa.confirmados) > 0:
             st.divider()
-            st.write("**Ya confirmados (para la factura):**")
+            st.markdown("**Ya confirmados (van a la cuenta):**")
             for it in mesa.confirmados.recorrer():
                 st.write(f"- {it}")
 
-    # --- Tab 3: estado de cocina (colas FIFO compartidas por puesto) ---
+    # --- Tab 3: estado de cocina ---
     with tab_cocina:
         colas = st.session_state.colas_cocina
-        st.write("**Pedidos pendientes por puesto:**")
+        st.markdown("**Pedidos pendientes por puesto**")
         if not colas or all(c.esta_vacia() for c in colas.values()):
             st.caption("No hay pedidos pendientes en cocina.")
         else:
-            for puesto, cola in colas.items():
-                st.write(f"- {puesto}: {len(cola)} pedido(s) en cola")
+            cols = st.columns(len(colas) or 1)
+            for i, (puesto, cola) in enumerate(colas.items()):
+                with cols[i % len(cols)]:
+                    with st.container(border=True):
+                        icono = ICONOS_PUESTO.get(puesto, "🍽️")
+                        st.markdown(f"**{icono} {puesto}**")
+                        st.markdown(f"<span class='badge-precio'>{len(cola)} en cola</span>",
+                                    unsafe_allow_html=True)
 
-        if st.button("👨‍🍳 Preparar siguiente de cada puesto"):
+        if st.button("👨‍🍳 Preparar siguiente de cada puesto", type="primary"):
             eventos = []
             for puesto, cola in colas.items():
                 if not cola.esta_vacia():
                     numero_mesa_item, item = cola.desencolar()
                     eventos.append(
-                        f"[{puesto}] Preparando para Mesa {numero_mesa_item}: "
+                        f"{ICONOS_PUESTO.get(puesto, '🍽️')} **{puesto}** → Mesa {numero_mesa_item}: "
                         f"{item.producto.nombre} (~{item.producto.tiempo_prep_seg}s)"
                     )
             if not eventos:
@@ -499,20 +661,21 @@ else:
 
         if st.session_state.log_cocina:
             st.divider()
-            st.write("**Ultimos eventos de cocina:**")
+            st.markdown("**Últimos eventos:**")
             for ev in st.session_state.log_cocina[:10]:
-                st.write(ev)
+                st.markdown(f"- {ev}")
 
-    # --- Tab 4: ruta mas corta (Dijkstra sobre el grafo del food park) ---
+    # --- Tab 4: ruta mas corta ---
     with tab_ruta:
         destinos = sorted(k for k in st.session_state.mapa.adyacencia.keys() if k != "Mesas")
         destino = st.selectbox("Puesto de destino", destinos)
-        if st.button("Calcular ruta"):
+        if st.button("📍 Calcular ruta", type="primary"):
             camino, distancia = st.session_state.mapa.camino_mas_corto("Mesas", destino)
             if camino is None:
                 st.error("Puesto no encontrado en el mapa.")
             else:
-                st.success(f"Ruta: {' → '.join(camino)}  ({distancia} m)")
+                iconos = " ".join(ICONOS_PUESTO.get(p, "📍") for p in camino)
+                st.success(f"{' → '.join(camino)}  ({distancia} m)  {iconos}")
 
     # --- Tab 5: cerrar cuenta / facturar ---
     with tab_factura:
@@ -523,7 +686,7 @@ else:
             total = mesa.total_cuenta()
             for texto in items_texto:
                 st.write(f"- {texto}")
-            st.write(f"**TOTAL: Gs. {total:,}**")
+            st.markdown(f"## Total: Gs. {total:,}")
 
             if st.button("🧾 Facturar y liberar mesa", type="primary"):
                 fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
