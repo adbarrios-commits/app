@@ -375,7 +375,8 @@ st.markdown("""
 
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 
-#MainMenu, footer, header[data-testid="stHeader"] { visibility: hidden; height: 0; }
+#MainMenu, footer { visibility: hidden; }
+header[data-testid="stHeader"] { background: transparent; }
 
 :root {
     --brand: #FF4B3E;
