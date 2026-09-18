@@ -3,11 +3,15 @@ TABLE - Servicio a la mesa para Food Parks (interfaz Streamlit)
 -----------------------------------------------------------------
 Misma logica y mismas estructuras de datos propias que foodtrack_v2.py
 (Nodo, ListaEnlazada, Cola, Pila, NodoArbol, Grafo, TablaHash).
-Esta version le suma un diseño visual tipo app de delivery (PedidosYa/Monchis).
+Esta version tiene un diseño visual vivo tipo app de delivery.
 
 Para correrlo:
     pip install streamlit
     streamlit run foodtrack_streamlit.py
+
+IMPORTANTE: subir tambien la carpeta .streamlit/config.toml junto a este
+archivo (mismo repo, misma estructura de carpetas) - fuerza colores claros
+y vivos sin importar si el celular esta en modo oscuro.
 """
 
 import json
@@ -18,7 +22,6 @@ import streamlit as st
 
 ARCHIVO_HISTORIAL = "facturas_historial.json"
 
-# Iconos usados solo para la parte visual (no afectan la logica)
 ICONOS_CATEGORIA = {
     "Menu": "🍽️",
     "Comidas": "🍴",
@@ -254,8 +257,8 @@ class ItemPedido:
 class Mesa:
     def __init__(self, numero):
         self.numero = numero
-        self.carrito = ListaEnlazada()       # items aun no enviados a cocina
-        self.confirmados = ListaEnlazada()   # items ya enviados, para la factura
+        self.carrito = ListaEnlazada()
+        self.confirmados = ListaEnlazada()
         self.historial_acciones = Pila()
 
     def agregar_al_carrito(self, producto, cantidad):
@@ -361,178 +364,220 @@ def init_state():
     st.session_state.mesa_actual = None
     st.session_state.ruta_menu = [menu]
     st.session_state.log_cocina = []
+    st.session_state.flash_add = None
 
 
 st.set_page_config(page_title="TABLE", page_icon="🍽️", layout="wide")
 init_state()
 
 # ============================================================
-# ESTILO VISUAL (look de app de delivery)
+# ESTILO VISUAL - colores vivos tipo app de delivery
 # ============================================================
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-
 #MainMenu, footer { visibility: hidden; }
 header[data-testid="stHeader"] { background: transparent; }
 
 :root {
-    --brand: #FF4B3E;
-    --brand-dark: #E0392D;
-    --brand-light: #FFF0EE;
-    --ok: #2EC4B6;
+    --brand: #FF2D55;
+    --brand-dark: #D81B4F;
+    --brand-light: #FFE5EC;
+    --accent: #FFC400;
     --text-dark: #1D1D1F;
-    --text-muted: #767680;
+    --muted: #767680;
 }
 
-.block-container { padding-top: 1rem; padding-bottom: 3rem; max-width: 1050px; }
+.stApp { background: #FFFFFF; }
+.block-container { padding-top: 0.8rem; padding-bottom: 4rem; max-width: 1050px; }
 
-/* ---- Sidebar ---- */
-section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #1D1D1F 0%, #29292C 100%);
+/* ---- Carrito flotante arriba a la derecha ---- */
+.cart-fab {
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    z-index: 999999;
+    background: white;
+    border-radius: 50%;
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+    border: 2px solid var(--brand-light);
 }
-section[data-testid="stSidebar"] * { color: #F2F2F4 !important; }
-section[data-testid="stSidebar"] hr { border-color: rgba(255,255,255,0.12); }
-section[data-testid="stSidebar"] .stButton>button {
-    background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.14);
-    border-radius: 12px;
-    font-weight: 500;
-    padding: 0.5rem 0.9rem;
-}
-section[data-testid="stSidebar"] .stButton>button:hover {
+.cart-badge {
+    position: fixed;
+    top: 4px;
+    right: 8px;
+    z-index: 1000000;
     background: var(--brand);
-    border-color: var(--brand);
-    color: white !important;
-}
-section[data-testid="stSidebar"] input {
-    background: rgba(255,255,255,0.08) !important;
-    border-radius: 10px !important;
-    color: white !important;
+    color: white;
+    font-weight: 800;
+    font-size: 0.72rem;
+    border-radius: 50%;
+    min-width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    animation: popIn 0.25s ease;
 }
 
-/* ---- Buttons (main area) ---- */
+/* ---- Botones ---- */
 button[kind="primary"] {
     background: var(--brand) !important;
     border: none !important;
-    border-radius: 14px !important;
-    font-weight: 600 !important;
-    padding: 0.55rem 1.2rem !important;
-    box-shadow: 0 6px 16px rgba(255,75,62,0.30);
+    border-radius: 16px !important;
+    font-weight: 700 !important;
+    color: white !important;
+    padding: 0.6rem 1.3rem !important;
+    box-shadow: 0 6px 16px rgba(255,45,85,0.35);
 }
 button[kind="primary"]:hover { background: var(--brand-dark) !important; }
+button[kind="primary"] p { color: white !important; font-weight: 700 !important; }
 
 button[kind="secondary"] {
-    border-radius: 14px !important;
-    border: 1.5px solid #ECECEE !important;
-    font-weight: 500 !important;
+    border-radius: 16px !important;
+    border: 2px solid var(--brand-light) !important;
+    font-weight: 600 !important;
     color: var(--text-dark) !important;
+    background: white !important;
 }
 button[kind="secondary"]:hover {
     border-color: var(--brand) !important;
     color: var(--brand) !important;
 }
+button[kind="secondary"] p { color: inherit !important; font-weight: 600 !important; }
+
+/* ---- Chips de mesa ---- */
+.mesa-chip button {
+    background: var(--accent) !important;
+    border: none !important;
+    color: var(--text-dark) !important;
+    font-weight: 700 !important;
+}
 
 /* ---- Tabs ---- */
-button[data-baseweb="tab"] { font-weight: 600; font-size: 0.95rem; }
+button[data-baseweb="tab"] { font-weight: 700; font-size: 0.95rem; color: var(--text-dark) !important; }
 div[data-baseweb="tab-highlight"] { background-color: var(--brand) !important; }
 button[data-baseweb="tab"][aria-selected="true"] { color: var(--brand) !important; }
 
-/* ---- Cards (bordered containers = productos / mesas) ---- */
+/* ---- Cards ---- */
 div[data-testid="stVerticalBlockBorderWrapper"] > div {
-    border-radius: 18px !important;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    border-radius: 20px !important;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.07);
     transition: box-shadow 0.15s ease, transform 0.15s ease;
-    padding: 0.4rem;
 }
 div[data-testid="stVerticalBlockBorderWrapper"] > div:hover {
-    box-shadow: 0 8px 20px rgba(0,0,0,0.10);
-    transform: translateY(-2px);
+    box-shadow: 0 10px 22px rgba(255,45,85,0.18);
+    transform: translateY(-3px);
 }
 
-/* ---- Badges ---- */
+/* ---- Badges de precio / puesto ---- */
 .badge-precio {
     display: inline-block;
-    background: var(--brand-light);
-    color: var(--brand);
-    font-weight: 700;
-    padding: 3px 12px;
+    background: var(--brand);
+    color: white;
+    font-weight: 800;
+    padding: 4px 14px;
     border-radius: 20px;
-    font-size: 0.82rem;
+    font-size: 0.85rem;
 }
 .badge-puesto {
     display: inline-block;
-    background: #F2F2F4;
-    color: var(--text-muted);
-    font-weight: 600;
-    padding: 3px 10px;
+    background: var(--accent);
+    color: var(--text-dark);
+    font-weight: 700;
+    padding: 4px 12px;
     border-radius: 20px;
     font-size: 0.75rem;
     margin-left: 6px;
+}
+
+/* ---- Animacion para alertas (agregado correctamente, etc) ---- */
+div[data-testid="stAlert"] {
+    animation: popIn 0.3s ease;
+    border-radius: 14px !important;
+    font-weight: 600 !important;
+}
+
+@keyframes popIn {
+    0% { transform: scale(0.85); opacity: 0; }
+    70% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
 }
 </style>
 """, unsafe_allow_html=True)
 
 # ---- Header / logo ----
 st.markdown("""
-<div style="text-align:center; padding: 0.5rem 0 0.2rem 0;">
-  <div style="font-family:'Fredoka',sans-serif; font-weight:700; font-size:2.8rem; color:#FF4B3E; letter-spacing:1px;">
+<div style="text-align:center; padding: 0.3rem 0 0.1rem 0;">
+  <div style="font-family:'Fredoka',sans-serif; font-weight:700; font-size:2.6rem; color:#FF2D55; letter-spacing:1px;">
     🍽️ TABLE
   </div>
-  <div style="color:#767680; font-size:1rem; margin-top:-6px;">
+  <div style="color:#767680; font-size:0.95rem; margin-top:-6px;">
     Del pedido a la mesa, sin esperas innecesarias
   </div>
 </div>
 """, unsafe_allow_html=True)
+
+# ---- Carrito flotante (arriba a la derecha) ----
+mesa_para_badge = st.session_state.mesa_actual
+cantidad_carrito = len(mesa_para_badge.carrito) if mesa_para_badge else 0
+badge_html = "<div class='cart-fab'>🛒</div>"
+if cantidad_carrito > 0:
+    badge_html += f"<div class='cart-badge'>{cantidad_carrito}</div>"
+st.markdown(badge_html, unsafe_allow_html=True)
+
 st.write("")
 
 # ------------------------------------------------------------
-# BARRA LATERAL
+# SELECTOR DE MESA (en la pantalla principal, no escondido)
 # ------------------------------------------------------------
-with st.sidebar:
-    st.markdown("### 🏠 Panel")
-
-    numero = st.number_input("Numero de mesa", min_value=1, step=1, value=1)
-    if st.button("➕ Abrir / seleccionar mesa", use_container_width=True):
-        mesa = st.session_state.mesas_activas.buscar(numero)
-        if mesa is None:
-            mesa = Mesa(numero)
-            st.session_state.mesas_activas.insertar(numero, mesa)
-        st.session_state.mesa_actual = mesa
+st.markdown("### 🪑 Elegí tu mesa")
+col_num, col_btn = st.columns([2, 1])
+with col_num:
+    numero = st.number_input("Numero de mesa", min_value=1, step=1, value=1,
+                              label_visibility="collapsed")
+with col_btn:
+    if st.button("Ir a mi mesa 🚀", use_container_width=True, type="primary"):
+        mesa_existente = st.session_state.mesas_activas.buscar(numero)
+        if mesa_existente is None:
+            mesa_existente = Mesa(numero)
+            st.session_state.mesas_activas.insertar(numero, mesa_existente)
+        st.session_state.mesa_actual = mesa_existente
         st.session_state.ruta_menu = [st.session_state.menu]
         st.rerun()
 
-    st.divider()
-    st.markdown("### 🪑 Mesas activas")
-    activas = st.session_state.mesas_activas.valores()
-    if not activas:
-        st.caption("No hay mesas activas.")
-    else:
-        for m in activas:
-            etiqueta = f"Mesa {m.numero} · 🛒 {len(m.carrito)}"
-            if st.button(etiqueta, key=f"sel_mesa_{m.numero}", use_container_width=True):
+activas = st.session_state.mesas_activas.valores()
+if activas:
+    st.caption("Mesas ya abiertas — tocá para volver a esa mesa:")
+    chip_cols = st.columns(min(len(activas), 6))
+    for i, m in enumerate(activas):
+        with chip_cols[i % len(chip_cols)]:
+            st.markdown('<div class="mesa-chip">', unsafe_allow_html=True)
+            if st.button(f"Mesa {m.numero} 🛒{len(m.carrito)}", key=f"chip_{m.numero}",
+                         use_container_width=True):
                 st.session_state.mesa_actual = m
                 st.session_state.ruta_menu = [st.session_state.menu]
                 st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
-    st.divider()
-    st.markdown("### 🧾 Historial")
-    if not st.session_state.historial_facturas:
-        st.caption("Aun no hay facturas registradas.")
-    else:
-        for f in st.session_state.historial_facturas[-10:][::-1]:
-            st.caption(f"[{f['fecha']}] Mesa {f['mesa']} — Gs. {f['total']:,}")
-
+st.divider()
 
 # ------------------------------------------------------------
-# AREA PRINCIPAL
+# AREA PRINCIPAL: gestion de la mesa seleccionada
 # ------------------------------------------------------------
 mesa = st.session_state.mesa_actual
 
 if mesa is None:
-    st.info("👋 Abri o seleccioná una mesa desde el panel para empezar a pedir.")
+    st.info("👋 Elegí un numero de mesa arriba para empezar a pedir.")
 else:
     st.markdown(f"## Mesa {mesa.numero}")
 
@@ -574,11 +619,16 @@ else:
                             "Cantidad", min_value=1, value=1, step=1,
                             key=f"cant_{p.codigo}", label_visibility="collapsed",
                         )
-                        if st.button("Agregar al carrito", key=f"add_{p.codigo}",
+                        if st.button("➕ Agregar al carrito", key=f"add_{p.codigo}",
                                      use_container_width=True, type="primary"):
                             mesa.agregar_al_carrito(p, cantidad)
-                            st.toast(f"Agregado: {cantidad}x {p.nombre}", icon="✅")
+                            st.session_state.flash_add = p.codigo
                             st.rerun()
+
+                        # Confirmacion visible justo debajo del boton
+                        if st.session_state.flash_add == p.codigo:
+                            st.success("✅ ¡Agregado correctamente!")
+                            st.session_state.flash_add = None
                     else:
                         icono = ICONOS_CATEGORIA.get(hijo.nombre, "📂")
                         st.markdown(f"### {icono} {hijo.nombre}")
@@ -605,7 +655,7 @@ else:
             if st.button("↩️ Deshacer último", use_container_width=True):
                 quitado = mesa.deshacer()
                 if quitado:
-                    st.toast(f"Se quitó: {quitado.producto.nombre}", icon="↩️")
+                    st.success(f"↩️ Se quitó: {quitado.producto.nombre}")
                 else:
                     st.warning("Nada para deshacer.")
                 st.rerun()
@@ -620,7 +670,7 @@ else:
                         st.session_state.colas_cocina[puesto].encolar((mesa.numero, item))
                         mesa.confirmados.agregar(item)
                     mesa.carrito = ListaEnlazada()
-                    st.toast("Pedido enviado a cocina", icon="🍳")
+                    st.success("🍳 ¡Pedido enviado a cocina!")
                     st.rerun()
 
         if len(mesa.confirmados) > 0:
@@ -698,3 +748,14 @@ else:
                 st.session_state.mesa_actual = None
                 st.success(f"Factura guardada. Mesa {mesa.numero} liberada.")
                 st.rerun()
+
+# ------------------------------------------------------------
+# Historial (ya no en sidebar, va como seccion plegable al final)
+# ------------------------------------------------------------
+st.divider()
+with st.expander("🧾 Ver historial de facturas"):
+    if not st.session_state.historial_facturas:
+        st.caption("Aun no hay facturas registradas.")
+    else:
+        for f in st.session_state.historial_facturas[-10:][::-1]:
+            st.write(f"[{f['fecha']}] Mesa {f['mesa']} — Gs. {f['total']:,}")
