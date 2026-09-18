@@ -3,14 +3,15 @@ TABLE - Servicio a la mesa para Food Parks (interfaz Streamlit)
 -----------------------------------------------------------------
 Misma logica y mismas estructuras de datos propias que foodtrack_v2.py
 (Nodo, ListaEnlazada, Cola, Pila, NodoArbol, Grafo, TablaHash).
-Esta version tiene un diseño visual vivo tipo app de delivery.
+Diseño inspirado en apps de delivery: header de color, carrito funcional
+en un popover, tarjetas de categoria, barra de navegacion abajo.
 
 Para correrlo:
     pip install streamlit
     streamlit run foodtrack_streamlit.py
 
 IMPORTANTE: subir tambien la carpeta .streamlit/config.toml junto a este
-archivo (mismo repo, misma estructura de carpetas) - fuerza colores claros
+archivo (misma estructura de carpetas en el repo) - fuerza colores claros
 y vivos sin importar si el celular esta en modo oscuro.
 """
 
@@ -365,13 +366,14 @@ def init_state():
     st.session_state.ruta_menu = [menu]
     st.session_state.log_cocina = []
     st.session_state.flash_add = None
+    st.session_state.cambiar_mesa = False
 
 
 st.set_page_config(page_title="TABLE", page_icon="🍽️", layout="wide")
 init_state()
 
 # ============================================================
-# ESTILO VISUAL - colores vivos tipo app de delivery
+# ESTILO VISUAL
 # ============================================================
 st.markdown("""
 <style>
@@ -388,48 +390,42 @@ header[data-testid="stHeader"] { background: transparent; }
     --accent: #FFC400;
     --text-dark: #1D1D1F;
     --muted: #767680;
+    --tile-bg: #F2F2F5;
 }
 
 .stApp { background: #FFFFFF; }
-.block-container { padding-top: 0.8rem; padding-bottom: 4rem; max-width: 1050px; }
+.block-container { padding-top: 0 !important; padding-bottom: 6rem; max-width: 1050px; }
 
-/* ---- Carrito flotante arriba a la derecha ---- */
-.cart-fab {
-    position: fixed;
-    top: 12px;
-    right: 16px;
-    z-index: 999999;
-    background: white;
-    border-radius: 50%;
-    width: 52px;
-    height: 52px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.6rem;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
-    border: 2px solid var(--brand-light);
+.stApp h1, .stApp h2, .stApp h3, .stApp h4,
+.stApp p, .stApp li, .stApp label, .stApp .stMarkdown { color: var(--text-dark); }
+
+/* ---- Header de color, ancho completo ---- */
+div.st-key-topbar {
+    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+    margin: 0 -1rem 1.1rem -1rem;
+    padding: 1.1rem 1.2rem 1.4rem 1.2rem;
+    border-radius: 0 0 26px 26px;
 }
-.cart-badge {
-    position: fixed;
-    top: 4px;
-    right: 8px;
-    z-index: 1000000;
-    background: var(--brand);
-    color: white;
-    font-weight: 800;
-    font-size: 0.72rem;
-    border-radius: 50%;
-    min-width: 20px;
-    height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-    animation: popIn 0.25s ease;
+div.st-key-topbar * { color: white !important; }
+div.st-key-topbar button {
+    background: rgba(255,255,255,0.18) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    font-weight: 700 !important;
+    width: 46px; height: 46px;
+}
+div.st-key-topbar button:hover { background: rgba(255,255,255,0.32) !important; }
+div.st-key-topbar button p { color: white !important; }
+
+/* ---- Buscador ---- */
+div.st-key-buscador input {
+    border-radius: 16px !important;
+    border: none !important;
+    padding: 0.7rem 1rem !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.10);
 }
 
-/* ---- Botones ---- */
+/* ---- Botones generales ---- */
 button[kind="primary"] {
     background: var(--brand) !important;
     border: none !important;
@@ -437,7 +433,7 @@ button[kind="primary"] {
     font-weight: 700 !important;
     color: white !important;
     padding: 0.6rem 1.3rem !important;
-    box-shadow: 0 6px 16px rgba(255,45,85,0.35);
+    box-shadow: 0 6px 16px rgba(255,45,85,0.30);
 }
 button[kind="primary"]:hover { background: var(--brand-dark) !important; }
 button[kind="primary"] p { color: white !important; font-weight: 700 !important; }
@@ -455,31 +451,24 @@ button[kind="secondary"]:hover {
 }
 button[kind="secondary"] p { color: inherit !important; font-weight: 600 !important; }
 
-/* ---- Chips de mesa ---- */
-.mesa-chip button {
-    background: var(--accent) !important;
-    border: none !important;
-    color: var(--text-dark) !important;
-    font-weight: 700 !important;
+/* ---- Tarjetas de categoria (imitando tiles de delivery apps) ---- */
+.cat-tile {
+    background: var(--tile-bg);
+    border-radius: 20px;
+    padding: 1.6rem 0.5rem 0.9rem 0.5rem;
+    text-align: center;
+    margin-bottom: 0.4rem;
 }
+.cat-tile .emoji { font-size: 2.6rem; display:block; margin-bottom: 0.4rem; }
+.cat-tile .label { font-weight: 700; color: var(--text-dark); font-size: 1rem; }
+.cat-tile .sub { color: var(--muted); font-size: 0.78rem; }
 
-/* ---- Tabs ---- */
-button[data-baseweb="tab"] { font-weight: 700; font-size: 0.95rem; color: var(--text-dark) !important; }
-div[data-baseweb="tab-highlight"] { background-color: var(--brand) !important; }
-button[data-baseweb="tab"][aria-selected="true"] { color: var(--brand) !important; }
-
-/* ---- Cards ---- */
+/* ---- Cards con borde (productos) ---- */
 div[data-testid="stVerticalBlockBorderWrapper"] > div {
     border-radius: 20px !important;
     box-shadow: 0 3px 12px rgba(0,0,0,0.07);
-    transition: box-shadow 0.15s ease, transform 0.15s ease;
-}
-div[data-testid="stVerticalBlockBorderWrapper"] > div:hover {
-    box-shadow: 0 10px 22px rgba(255,45,85,0.18);
-    transform: translateY(-3px);
 }
 
-/* ---- Badges de precio / puesto ---- */
 .badge-precio {
     display: inline-block;
     background: var(--brand);
@@ -500,139 +489,202 @@ div[data-testid="stVerticalBlockBorderWrapper"] > div:hover {
     margin-left: 6px;
 }
 
-/* ---- Animacion para alertas (agregado correctamente, etc) ---- */
+/* ---- Alertas con animacion ---- */
 div[data-testid="stAlert"] {
     animation: popIn 0.3s ease;
     border-radius: 14px !important;
     font-weight: 600 !important;
 }
-
 @keyframes popIn {
     0% { transform: scale(0.85); opacity: 0; }
     70% { transform: scale(1.05); }
     100% { transform: scale(1); opacity: 1; }
 }
+
+/* ---- Barra de navegacion abajo (a partir de los tabs) ---- */
+div[data-baseweb="tab-list"] {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: white;
+    box-shadow: 0 -3px 16px rgba(0,0,0,0.10);
+    z-index: 999999;
+    padding: 8px 4px calc(10px + env(safe-area-inset-bottom)) 4px;
+    justify-content: space-around !important;
+    border-radius: 22px 22px 0 0;
+    gap: 0 !important;
+}
+button[data-baseweb="tab"] {
+    flex: 1;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.82rem;
+    color: var(--muted) !important;
+}
+button[data-baseweb="tab"][aria-selected="true"] { color: var(--brand) !important; }
+div[data-baseweb="tab-highlight"] { display: none !important; }
+div[data-baseweb="tab-border"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ---- Header / logo ----
-st.markdown("""
-<div style="text-align:center; padding: 0.3rem 0 0.1rem 0;">
-  <div style="font-family:'Fredoka',sans-serif; font-weight:700; font-size:2.6rem; color:#FF2D55; letter-spacing:1px;">
-    🍽️ TABLE
-  </div>
-  <div style="color:#767680; font-size:0.95rem; margin-top:-6px;">
-    Del pedido a la mesa, sin esperas innecesarias
-  </div>
-</div>
-""", unsafe_allow_html=True)
 
-# ---- Carrito flotante (arriba a la derecha) ----
-mesa_para_badge = st.session_state.mesa_actual
-cantidad_carrito = len(mesa_para_badge.carrito) if mesa_para_badge else 0
-badge_html = "<div class='cart-fab'>🛒</div>"
-if cantidad_carrito > 0:
-    badge_html += f"<div class='cart-badge'>{cantidad_carrito}</div>"
-st.markdown(badge_html, unsafe_allow_html=True)
+def render_producto_card(mesa_obj, p):
+    """Tarjeta de un producto (usada en la navegacion y en la busqueda)."""
+    with st.container(border=True):
+        icono = ICONOS_PUESTO.get(p.puesto, "🍽️")
+        st.markdown(f"#### {icono} {p.nombre}")
+        st.markdown(
+            f"<span class='badge-precio'>Gs. {p.precio:,}</span>"
+            f"<span class='badge-puesto'>{p.puesto}</span>",
+            unsafe_allow_html=True,
+        )
+        cantidad = st.number_input(
+            "Cantidad", min_value=1, value=1, step=1,
+            key=f"cant_{p.codigo}", label_visibility="collapsed",
+        )
+        if st.button("➕ Agregar", key=f"add_{p.codigo}",
+                     use_container_width=True, type="primary"):
+            mesa_obj.agregar_al_carrito(p, cantidad)
+            st.session_state.flash_add = p.codigo
+            st.rerun()
 
-st.write("")
+        if st.session_state.flash_add == p.codigo:
+            st.success("✅ ¡Agregado correctamente!")
+            st.session_state.flash_add = None
 
-# ------------------------------------------------------------
-# SELECTOR DE MESA (en la pantalla principal, no escondido)
-# ------------------------------------------------------------
-st.markdown("### 🪑 Elegí tu mesa")
-col_num, col_btn = st.columns([2, 1])
-with col_num:
-    numero = st.number_input("Numero de mesa", min_value=1, step=1, value=1,
-                              label_visibility="collapsed")
-with col_btn:
-    if st.button("Ir a mi mesa 🚀", use_container_width=True, type="primary"):
-        mesa_existente = st.session_state.mesas_activas.buscar(numero)
-        if mesa_existente is None:
-            mesa_existente = Mesa(numero)
-            st.session_state.mesas_activas.insertar(numero, mesa_existente)
-        st.session_state.mesa_actual = mesa_existente
-        st.session_state.ruta_menu = [st.session_state.menu]
-        st.rerun()
 
-activas = st.session_state.mesas_activas.valores()
-if activas:
-    st.caption("Mesas ya abiertas — tocá para volver a esa mesa:")
-    chip_cols = st.columns(min(len(activas), 6))
-    for i, m in enumerate(activas):
-        with chip_cols[i % len(chip_cols)]:
-            st.markdown('<div class="mesa-chip">', unsafe_allow_html=True)
-            if st.button(f"Mesa {m.numero} 🛒{len(m.carrito)}", key=f"chip_{m.numero}",
-                         use_container_width=True):
-                st.session_state.mesa_actual = m
-                st.session_state.ruta_menu = [st.session_state.menu]
+# ---- Header de color con logo, mesas y carrito ----
+mesa_actual_ref = st.session_state.mesa_actual
+cantidad_carrito = len(mesa_actual_ref.carrito) if mesa_actual_ref else 0
+
+with st.container(key="topbar"):
+    c_logo, c_bell, c_cart = st.columns([5, 1, 1])
+    with c_logo:
+        estado = f"Mesa {mesa_actual_ref.numero}" if mesa_actual_ref else "Elegí tu mesa"
+        st.markdown(
+            f"<div style='font-family:Fredoka,sans-serif; font-weight:700; font-size:1.6rem;'>🍽️ TABLE</div>"
+            f"<div style='opacity:0.9; font-size:0.85rem; margin-top:-4px;'>{estado} ▾</div>",
+            unsafe_allow_html=True,
+        )
+    with c_bell:
+        with st.popover("🪑"):
+            st.markdown("**Mesas activas**")
+            activas = st.session_state.mesas_activas.valores()
+            if not activas:
+                st.caption("No hay mesas abiertas todavia.")
+            else:
+                for m in activas:
+                    if st.button(f"Mesa {m.numero} · 🛒{len(m.carrito)}",
+                                 key=f"pop_mesa_{m.numero}", use_container_width=True):
+                        st.session_state.mesa_actual = m
+                        st.session_state.ruta_menu = [st.session_state.menu]
+                        st.rerun()
+            st.divider()
+            if st.button("➕ Abrir otra mesa", use_container_width=True):
+                st.session_state.cambiar_mesa = True
                 st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+    with c_cart:
+        with st.popover(f"🛒 {cantidad_carrito}" if cantidad_carrito else "🛒"):
+            st.markdown("**Tu carrito**")
+            if mesa_actual_ref is None:
+                st.caption("Elegí una mesa primero.")
+            else:
+                items = mesa_actual_ref.carrito.recorrer()
+                if not items:
+                    st.caption("Todavia no agregaste nada.")
+                else:
+                    for it in items:
+                        st.write(f"{it.cantidad}x {it.producto.nombre} — Gs. {it.subtotal():,}")
+                    st.markdown(f"**Subtotal: Gs. {mesa_actual_ref.carrito.calcular_total():,}**")
+                    if st.button("✅ Enviar a cocina", key="cart_pop_enviar",
+                                 use_container_width=True, type="primary"):
+                        for item in items:
+                            puesto = item.producto.puesto
+                            st.session_state.colas_cocina.setdefault(puesto, Cola())
+                            st.session_state.colas_cocina[puesto].encolar((mesa_actual_ref.numero, item))
+                            mesa_actual_ref.confirmados.agregar(item)
+                        mesa_actual_ref.carrito = ListaEnlazada()
+                        st.success("🍳 ¡Pedido enviado a cocina!")
+                        st.rerun()
 
-st.divider()
+# ---- Selector de mesa (solo si no hay una elegida, o si pidieron cambiar) ----
+if mesa_actual_ref is None or st.session_state.cambiar_mesa:
+    st.markdown("##### 🪑 Numero de mesa")
+    col_num, col_btn = st.columns([2, 1])
+    with col_num:
+        numero = st.number_input("Numero de mesa", min_value=1, step=1, value=1,
+                                  label_visibility="collapsed")
+    with col_btn:
+        if st.button("Ir a mi mesa 🚀", use_container_width=True, type="primary"):
+            mesa_existente = st.session_state.mesas_activas.buscar(numero)
+            if mesa_existente is None:
+                mesa_existente = Mesa(numero)
+                st.session_state.mesas_activas.insertar(numero, mesa_existente)
+            st.session_state.mesa_actual = mesa_existente
+            st.session_state.ruta_menu = [st.session_state.menu]
+            st.session_state.cambiar_mesa = False
+            st.rerun()
+    st.divider()
 
 # ------------------------------------------------------------
-# AREA PRINCIPAL: gestion de la mesa seleccionada
+# AREA PRINCIPAL
 # ------------------------------------------------------------
 mesa = st.session_state.mesa_actual
 
 if mesa is None:
     st.info("👋 Elegí un numero de mesa arriba para empezar a pedir.")
 else:
-    st.markdown(f"## Mesa {mesa.numero}")
-
     tab_menu, tab_carrito, tab_cocina, tab_ruta, tab_factura = st.tabs(
-        ["🍔  Menú", "🛒  Carrito", "👨‍🍳  Cocina", "🗺️  Ruta", "🧾  Cuenta"]
+        ["🍔 Menú", "🛒 Carrito", "👨‍🍳 Cocina", "🗺️ Ruta", "🧾 Cuenta"]
     )
 
-    # --- Tab 1: navegar el arbol de categorias y agregar productos ---
+    # --- Tab 1: buscador + navegar el arbol de categorias ---
     with tab_menu:
-        nodo_actual = st.session_state.ruta_menu[-1]
+        with st.container(key="buscador"):
+            query = st.text_input("Buscar", placeholder="🔍 Buscar producto...",
+                                   label_visibility="collapsed")
 
-        breadcrumb = " ➜ ".join(
-            f"{ICONOS_CATEGORIA.get(n.nombre, '📂')} {n.nombre}"
-            for n in st.session_state.ruta_menu
-        )
-        st.markdown(f"**{breadcrumb}**")
+        if query.strip():
+            productos_todos = st.session_state.catalogo.valores()
+            resultados = [p for p in productos_todos if query.strip().lower() in p.nombre.lower()]
+            st.caption(f"{len(resultados)} resultado(s) para \"{query}\"")
+            if not resultados:
+                st.warning("No encontramos productos con ese nombre.")
+            cols = st.columns(3)
+            for i, p in enumerate(resultados):
+                with cols[i % 3]:
+                    render_producto_card(mesa, p)
+        else:
+            nodo_actual = st.session_state.ruta_menu[-1]
+            breadcrumb = " ➜ ".join(
+                f"{ICONOS_CATEGORIA.get(n.nombre, '📂')} {n.nombre}"
+                for n in st.session_state.ruta_menu
+            )
+            col_bc, col_back = st.columns([4, 1])
+            with col_bc:
+                st.markdown(f"**{breadcrumb}**")
+            with col_back:
+                if len(st.session_state.ruta_menu) > 1:
+                    if st.button("⬅️ Volver", key="volver_menu", use_container_width=True):
+                        st.session_state.ruta_menu.pop()
+                        st.rerun()
 
-        if len(st.session_state.ruta_menu) > 1:
-            if st.button("⬅️ Volver", key="volver_menu"):
-                st.session_state.ruta_menu.pop()
-                st.rerun()
-
-        st.write("")
-        cols = st.columns(3)
-        for i, hijo in enumerate(nodo_actual.hijos):
-            with cols[i % 3]:
-                with st.container(border=True):
+            cols = st.columns(3)
+            for i, hijo in enumerate(nodo_actual.hijos):
+                with cols[i % 3]:
                     if hijo.producto:
-                        p = hijo.producto
-                        icono = ICONOS_PUESTO.get(p.puesto, "🍽️")
-                        st.markdown(f"### {icono} {p.nombre}")
-                        st.markdown(
-                            f"<span class='badge-precio'>Gs. {p.precio:,}</span>"
-                            f"<span class='badge-puesto'>{p.puesto}</span>",
-                            unsafe_allow_html=True,
-                        )
-                        st.write("")
-                        cantidad = st.number_input(
-                            "Cantidad", min_value=1, value=1, step=1,
-                            key=f"cant_{p.codigo}", label_visibility="collapsed",
-                        )
-                        if st.button("➕ Agregar al carrito", key=f"add_{p.codigo}",
-                                     use_container_width=True, type="primary"):
-                            mesa.agregar_al_carrito(p, cantidad)
-                            st.session_state.flash_add = p.codigo
-                            st.rerun()
-
-                        # Confirmacion visible justo debajo del boton
-                        if st.session_state.flash_add == p.codigo:
-                            st.success("✅ ¡Agregado correctamente!")
-                            st.session_state.flash_add = None
+                        render_producto_card(mesa, hijo.producto)
                     else:
                         icono = ICONOS_CATEGORIA.get(hijo.nombre, "📂")
-                        st.markdown(f"### {icono} {hijo.nombre}")
-                        st.caption(f"{len(hijo.hijos)} opciones")
+                        st.markdown(
+                            f"<div class='cat-tile'>"
+                            f"<span class='emoji'>{icono}</span>"
+                            f"<span class='label'>{hijo.nombre}</span><br>"
+                            f"<span class='sub'>{len(hijo.hijos)} opciones</span>"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
                         if st.button("Ver más", key=f"nav_{hijo.nombre}_{i}",
                                      use_container_width=True):
                             st.session_state.ruta_menu.append(hijo)
@@ -750,7 +802,7 @@ else:
                 st.rerun()
 
 # ------------------------------------------------------------
-# Historial (ya no en sidebar, va como seccion plegable al final)
+# Historial
 # ------------------------------------------------------------
 st.divider()
 with st.expander("🧾 Ver historial de facturas"):
